@@ -7,7 +7,7 @@ library(readxl)
 kertoimet <- readxl::read_xlsx("data/Kertoimet.xlsx")
 
 ui <- fluidPage(
-  titlePanel("Tarvevakiointikertoimien tarkastelu"),
+  titlePanel("Tarvevakiointitekijöiden tarkastelu"),
   
   tabsetPanel(
     tabPanel("Kehitys alueella",
@@ -40,6 +40,16 @@ ui <- fluidPage(
                  highchartOutput("kaavio2", height = "500px")
                )
              )
+    ),
+    tabPanel("Absoluuttiset erot: Ennakko vs. lopullinen (2023)",
+             sidebarLayout(
+               sidebarPanel(
+                 selectInput("valittu_alue", "Valitse alue:", choices = sort(unique(kertoimet$alue)))
+               ),
+               mainPanel(
+                 DTOutput("taulukko")
+               )
+             )
     )
   )
 )
@@ -50,6 +60,7 @@ server <- function(input, output, session) {
   
   observeEvent(input$tyyppi1, {
     muuttujat <- kertoimet %>%
+      filter(versio == "lopullinen") %>% 
       filter(tyyppi == input$tyyppi1) %>%
       pull(Muuttuja) %>%
       unique() %>%
@@ -60,6 +71,7 @@ server <- function(input, output, session) {
   
   observeEvent(input$muuttuja1, {
     alueet <- kertoimet %>%
+      filter(versio == "lopullinen") %>% 
       filter(Muuttuja == input$muuttuja1, tyyppi == input$tyyppi1) %>%
       pull(alue) %>%
       unique() %>%
@@ -73,7 +85,8 @@ server <- function(input, output, session) {
       filter(
         Muuttuja == input$muuttuja1,
         alue == input$alue1,
-        tyyppi == input$tyyppi1
+        tyyppi == input$tyyppi1,
+        versio == "lopullinen"
       )
     
     hchart(df, "line", hcaes(x = vuosi, y = arvioitu_maara)) %>%
@@ -103,6 +116,28 @@ server <- function(input, output, session) {
       hc_tooltip(pointFormat = "<b>{point.y:,.0f}</b> henkilöä<br/>Tyyppi: {point.tyyppi}") %>%
       hc_legend(enabled = TRUE)
   })
+  
+  ## Välilehti 3: Vertailu ennakko vs. lopullinen
+  
+  erot_data <- reactive({
+    kertoimet %>%
+      filter(vuosi == 2023, alue == input$valittu_alue) %>%
+      group_by(Muuttuja, versio) %>%
+      summarise(arvioitu_maara = sum(arvioitu_maara), .groups = "drop") %>%
+      pivot_wider(names_from = versio, values_from = arvioitu_maara) %>%
+      mutate(
+        absoluuttinen_muutos = lopullinen - ennakko
+      ) %>%
+      arrange(desc(abs(absoluuttinen_muutos)))
+  })
+  
+  output$taulukko <- renderDT({
+    erot_data() %>%
+      select(Muuttuja, ennakko, lopullinen, absoluuttinen_muutos) %>%
+      datatable(options = list(pageLength = 25), rownames = FALSE) %>%
+      formatRound(columns = c("ennakko", "lopullinen", "absoluuttinen_muutos"), digits = 0)
+  })
+  
 }
 
 shinyApp(ui, server)
