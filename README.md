@@ -20,3 +20,11 @@ Skripti tuottaa xlsx-tiedoston jonka sisältö on:
 Skriptin käyttämä tiedoto löytyy THL:n sivuilta osoitteesta: <https://thl.fi/aiheet/sote-palvelujen-johtaminen/rahoitus-ja-kustannukset/hyvinvointialueiden-sote-palvelujen-tarveperustainen-rahoitus>
 
 (kts. kohta "Tarvekertoimien laskenta" ja "Laskentataulukko tarvekertoimille")
+
+## Shiny.app
+
+Julkaisussa on matkassa Shiny.app tiedosto (app.R) johon on tehty kaksi yksinkertaista visualisointia.
+
+-   Mahdollisuus tarkastella yhden muuttujan kehittymistä yhdella alueella vuosien aikana
+
+-   Mahdollisuus vertailla yksittäisen muuttujan eroja yhden vuoden aikana eri alueiden välillä (absoluuttiset lukumäärät)
