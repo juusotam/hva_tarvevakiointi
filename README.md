@@ -29,8 +29,16 @@ Skriptin käyttämä tiedoto löytyy THL:n sivuilta osoitteesta: <https://thl.fi
 
 ## Shiny.app
 
-Julkaisussa on matkassa Shiny.app tiedosto (app.R) johon on tehty kaksi yksinkertaista visualisointia.
+Julkaisussa on matkassa Shiny.app tiedosto (`app.R`) johon on tehty kolme yksinkertaista visualisointia.
 
 -   Mahdollisuus tarkastella yhden muuttujan kehittymistä yhdella alueella vuosien aikana
 
 -   Mahdollisuus vertailla yksittäisen muuttujan eroja yhden vuoden aikana eri alueiden välillä (absoluuttiset lukumäärät)
+
+-   Taulukko muutoksista ennakkotietojen (30.4.) ja lopullisten tietojen (25.6.) välillä.
+
+## Tarvekertoimet
+
+Tarvekertoimet lasketaan `tarvekertoimet.R` skriptillä. Skripti tuottaa tiedoston `Tervekertoimet.xlsx` data-kansioon.
+
+Tiedostossa `trendit.R` on koodi jolla luodaan kuvaaja kokonaistarvekertoimen trendistä vuosina 2018-2023 alueittain.

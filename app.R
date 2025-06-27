@@ -2,9 +2,12 @@ library(shiny)
 library(dplyr)
 library(highcharter)
 library(readxl)
+library(DT)
+library(tidyverse)
 
 # Lue data
 kertoimet <- readxl::read_xlsx("data/Kertoimet.xlsx")
+kertoimet_laskenta <- readxl::read_xlsx("data/Kertoimet_laskenta.xlsx")
 
 ui <- fluidPage(
   titlePanel("Tarvevakiointitekijöiden tarkastelu"),
@@ -47,7 +50,24 @@ ui <- fluidPage(
                  selectInput("valittu_alue", "Valitse alue:", choices = sort(unique(kertoimet$alue)))
                ),
                mainPanel(
-                 DTOutput("taulukko")
+                 DT::dataTableOutput("taulukko"),
+                 tags$hr(),
+                 h4("Suurimmat muutokset alueittain (muuttujittain)"),
+                 DT::dataTableOutput("koko_maan_taulukko")
+               )
+             )
+    ),
+    tabPanel("Vesiputouskaavio",
+             sidebarLayout(
+               sidebarPanel(
+                 selectInput("valittu_alue", "Valitse alue:", choices = unique(kertoimet_laskenta$alue)),
+                 selectInput("valittu_vuosi", "Valitse vuosi:", choices = sort(unique(kertoimet_laskenta$vuosi))),
+                 selectInput("valittu_sektori", "Valitse sektori:",
+                             choices = c("Terveydenhuolto", "Sosiaalihuolto", "Vanhustenhuolto"),
+                             selected = "Terveydenhuolto")
+               ),
+               mainPanel(
+                 highchartOutput("vesiputous_kaavio", height = "1000px")
                )
              )
     )
@@ -122,6 +142,7 @@ server <- function(input, output, session) {
   erot_data <- reactive({
     kertoimet %>%
       filter(vuosi == 2023, alue == input$valittu_alue) %>%
+      filter(!Muuttuja %in% c("Matka-aika erikoissairaanhoidon päivystykseen minuutteina, 2. potenssi", "Matka-aika erikoissairaanhoidon päivystykseen minuutteina", "Asuntokunnan käyttötulo per kulutusyksiköt, luonnollinen logaritmi")) %>% 
       group_by(Muuttuja, versio) %>%
       summarise(arvioitu_maara = sum(arvioitu_maara), .groups = "drop") %>%
       pivot_wider(names_from = versio, values_from = arvioitu_maara) %>%
@@ -131,11 +152,70 @@ server <- function(input, output, session) {
       arrange(desc(abs(absoluuttinen_muutos)))
   })
   
-  output$taulukko <- renderDT({
+  koko_maan_erot_data <- reactive({
+    kertoimet %>%
+      filter(vuosi == 2023, versio %in% c("ennakko", "lopullinen")) %>%
+      filter(!Muuttuja %in% c("Matka-aika erikoissairaanhoidon päivystykseen minuutteina, 2. potenssi", "Matka-aika erikoissairaanhoidon päivystykseen minuutteina", "Asuntokunnan käyttötulo per kulutusyksiköt, luonnollinen logaritmi")) %>% 
+      group_by(alue, Muuttuja, versio) %>%
+      summarise(arvioitu_maara = sum(arvioitu_maara, na.rm = TRUE), .groups = "drop") %>%
+      pivot_wider(names_from = versio, values_from = arvioitu_maara) %>%
+      mutate(muutos = lopullinen - ennakko) %>%
+      select(alue, Muuttuja, muutos) %>%
+      pivot_wider(names_from = alue, values_from = muutos)
+  })
+  
+  output$taulukko <- DT::renderDataTable({
     erot_data() %>%
       select(Muuttuja, ennakko, lopullinen, absoluuttinen_muutos) %>%
       datatable(options = list(pageLength = 25), rownames = FALSE) %>%
       formatRound(columns = c("ennakko", "lopullinen", "absoluuttinen_muutos"), digits = 0)
+  })
+  
+  output$koko_maan_taulukko <- DT::renderDataTable({
+    koko_maan_erot_data() %>%
+      datatable(options = list(pageLength = 25, scrollX = TRUE), rownames = FALSE) %>%
+      formatRound(columns = setdiff(colnames(koko_maan_erot_data()), "Muuttuja"), digits = 0)
+  })
+  
+  output$vesiputous_kaavio <- renderHighchart({
+    sektori_valittu <- input$valittu_sektori
+    alue_valittu <- input$valittu_alue
+    vuosi_valittu <- input$valittu_vuosi
+    
+    sarake_nimi <- case_when(
+      sektori_valittu == "Terveydenhuolto" ~ "Terveydenhuolto",
+      sektori_valittu == "Sosiaalihuolto" ~ "Sosiaalihuolto",
+      sektori_valittu == "Vanhustenhuolto" ~ "Vanhustenhuolto"
+    )
+    
+    vesidata <- kertoimet_laskenta %>%
+      mutate(arvio = osuus * .data[[sarake_nimi]]) %>%
+      filter(alue == alue_valittu, vuosi == vuosi_valittu, !is.na(arvio)) %>%
+      select(Muuttuja, arvio) %>%
+      arrange(desc(abs(arvio))) %>%
+      slice_head(n = 50)
+    
+    muiden_osuus <- kertoimet_laskenta %>%
+      mutate(arvio = osuus * .data[[sarake_nimi]]) %>%
+      filter(alue == alue_valittu, vuosi == vuosi_valittu, !is.na(arvio)) %>%
+      anti_join(vesidata, by = "Muuttuja") %>%
+      summarise(Muuttuja = "Muut", arvio = sum(arvio))
+    
+    vesidata_final <- bind_rows(vesidata, muiden_osuus)
+    
+    highchart() %>%
+      hc_chart(type = "waterfall") %>%
+      hc_title(text = paste0(alue_valittu, " – ", sektori_valittu, " tarpeen muodostuminen (", vuosi_valittu, ")")) %>%
+      hc_xAxis(categories = vesidata_final$Muuttuja) %>%
+      hc_yAxis(title = list(text = "Arvioitu määrä")) %>%
+      hc_add_series(
+        name = "Vaikutus",
+        data = vesidata_final$arvio,
+        dataLabels = list(enabled = TRUE, format = "{point.y:.0f}"),
+        upColor = "#4CAF50",
+        color = "#F44336"
+      ) %>%
+      hc_plotOptions(series = list(stacking = "normal"))
   })
   
 }
