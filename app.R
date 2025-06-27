@@ -7,7 +7,9 @@ library(tidyverse)
 
 # Lue data
 kertoimet <- readxl::read_xlsx("data/Kertoimet.xlsx")
-kertoimet_laskenta <- readxl::read_xlsx("data/Kertoimet_laskenta.xlsx")
+# kertoimet_laskenta <- readxl::read_xlsx("data/Kertoimet_laskenta.xlsx")
+
+source("tarvekertoimet.R")
 
 ui <- fluidPage(
   titlePanel("Tarvevakiointitekijöiden tarkastelu"),

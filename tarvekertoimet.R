@@ -184,6 +184,6 @@ tarvekertoimet <- tarvekertoimet %>%
 
 # Kirjoitetaa tarvekertoimet xlsx-tiedostoon
 
-write_xlsx(tarvekertoimet, "data/Tarvekertoimet.xlsx")
-write_xlsx(tarvekertoimet_original, "data/Tarvekertoimet_original.xlsx")
-write_xlsx(kertoimet_laskenta, "data/Kertoimet_laskenta.xlsx")
+#write_xlsx(tarvekertoimet, "data/Tarvekertoimet.xlsx")
+#write_xlsx(tarvekertoimet_original, "data/Tarvekertoimet_original.xlsx")
+#write_xlsx(kertoimet_laskenta, "data/Kertoimet_laskenta.xlsx")
